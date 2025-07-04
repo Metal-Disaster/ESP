@@ -1,0 +1,94 @@
+return function(state)
+    local Players = game:GetService("Players")
+    local localPlayer = Players.LocalPlayer
+
+    if not getgenv().ESP_Data then
+        getgenv().ESP_Data = {
+            connections = {},
+            items = {}
+        }
+    end
+
+    local ESP = getgenv().ESP_Data
+
+    local function clearESP()
+        for _, obj in ipairs(ESP.items) do
+            if obj and obj.Parent then
+                obj:Destroy()
+            end
+        end
+        ESP.items = {}
+
+        for _, conn in ipairs(ESP.connections) do
+            pcall(function() conn:Disconnect() end)
+        end
+        ESP.connections = {}
+    end
+
+    if not state then
+        clearESP()
+        print("❌ ESP desactivado")
+        return
+    end
+
+    local function createESP(player)
+        if player == localPlayer then return end
+        player.CharacterAdded:Connect(function(char)
+            task.wait(0.2)
+            local head = char:FindFirstChild("Head") or char:FindFirstChild("HumanoidRootPart")
+            if not head then return end
+
+            local h = Instance.new("Highlight")
+            h.Name = "ESP_Highlight"
+            h.Adornee = char
+            h.FillColor = Color3.fromRGB(200, 200, 200)
+            h.FillTransparency = 0.5
+            h.OutlineColor = Color3.fromRGB(200, 200, 200)
+            h.OutlineTransparency = 0
+            h.Parent = char
+            table.insert(ESP.items, h)
+
+            local b = Instance.new("BillboardGui")
+            b.Name = "ESP_NameTag"
+            b.Adornee = head
+            b.Size = UDim2.new(0, 100, 0, 40)
+            b.StudsOffset = Vector3.new(0, 5, 0)
+            b.AlwaysOnTop = true
+            b.LightInfluence = 0
+            b.MaxDistance = 150
+            b.Parent = char
+            table.insert(ESP.items, b)
+
+            local label = Instance.new("TextLabel")
+            label.Size = UDim2.new(1, 0, 1, 0)
+            label.BackgroundTransparency = 1
+            label.Text = player.Name
+            label.TextColor3 = Color3.new(1, 1, 1)
+            label.TextStrokeColor3 = Color3.new(0, 0, 0)
+            label.TextStrokeTransparency = 0.2
+            label.TextSize = 15
+            label.Font = Enum.Font.SourceSansBold
+            label.Parent = b
+        end)
+
+        if player.Character then
+            player.CharacterAdded:Fire(player.Character)
+        end
+    end
+
+    for _, player in ipairs(Players:GetPlayers()) do
+        createESP(player)
+    end
+
+    table.insert(ESP.connections, Players.PlayerAdded:Connect(createESP))
+    table.insert(ESP.connections, Players.PlayerRemoving:Connect(function(p)
+        if p.Character then
+            local h = p.Character:FindFirstChild("ESP_Highlight")
+            if h then h:Destroy() end
+            local b = p.Character:FindFirstChild("ESP_NameTag")
+            if b then b:Destroy() end
+        end
+    end))
+
+    print("✅ ESP activado")
+end
