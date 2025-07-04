@@ -36,28 +36,27 @@ return function(state)
         return
     end
 
-    -- Crear ESP en personajes
-    local function applyESP(player, character)
+    local function applyESPToCharacter(player, character)
         if not character or player == localPlayer then return end
 
         local hrp = character:FindFirstChild("HumanoidRootPart")
         local head = character:FindFirstChild("Head") or hrp
         if not hrp or not head then return end
 
-        -- Highlight (si no existe)
+        -- Highlight gris
         if not character:FindFirstChild("ESP_Highlight") then
             local highlight = Instance.new("Highlight")
             highlight.Name = "ESP_Highlight"
             highlight.Adornee = character
-            highlight.FillColor = Color3.fromRGB(200, 200, 200)
+            highlight.FillColor = Color3.fromRGB(160, 160, 160)
             highlight.FillTransparency = 0.5
-            highlight.OutlineColor = Color3.fromRGB(255, 255, 255)
+            highlight.OutlineColor = Color3.fromRGB(160, 160, 160)
             highlight.OutlineTransparency = 0
             highlight.Parent = character
             table.insert(ESP.items, highlight)
         end
 
-        -- BillboardGui solo si está cerca
+        -- Mostrar nombre si está cerca
         local distance = (hrp.Position - localPlayer.Character.HumanoidRootPart.Position).Magnitude
         local existing = character:FindFirstChild("ESP_NameTag")
 
@@ -88,21 +87,20 @@ return function(state)
         end
     end
 
-    -- Aplicar ESP a todos
-    local function setupPlayer(player)
+    local function applyESP(player)
         if player == localPlayer then return end
-        if player.Character then applyESP(player, player.Character) end
+        if player.Character then applyESPToCharacter(player, player.Character) end
         table.insert(ESP.connections, player.CharacterAdded:Connect(function(char)
             task.wait(0.2)
-            applyESP(player, char)
+            applyESPToCharacter(player, char)
         end))
     end
 
     for _, p in ipairs(Players:GetPlayers()) do
-        setupPlayer(p)
+        applyESP(p)
     end
 
-    table.insert(ESP.connections, Players.PlayerAdded:Connect(setupPlayer))
+    table.insert(ESP.connections, Players.PlayerAdded:Connect(applyESP))
 
     table.insert(ESP.connections, Players.PlayerRemoving:Connect(function(p)
         if p.Character then
@@ -113,15 +111,18 @@ return function(state)
         end
     end))
 
-    -- 🌀 Bucle optimizado: actualiza solo cada 1 segundo
+    -- ✅ Bucle optimizado sin task.wait
+    local lastUpdate = 0
     ESP.loop = RunService.Heartbeat:Connect(function()
-        for _, p in ipairs(Players:GetPlayers()) do
-            if p ~= localPlayer and p.Character then
-                applyESP(p, p.Character)
+        if os.clock() - lastUpdate >= 1 then
+            lastUpdate = os.clock()
+            for _, p in ipairs(Players:GetPlayers()) do
+                if p ~= localPlayer and p.Character then
+                    applyESPToCharacter(p, p.Character)
+                end
             end
         end
-        task.wait(1)
     end)
 
-    print("✅ ESP activado con Highlight global y nombre cercano")
+    print("✅ ESP activado con borde gris y nombres visibles")
 end
