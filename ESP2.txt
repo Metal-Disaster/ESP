@@ -1,1 +1,122 @@
-h
+if getgenv().ESP_Connection then
+	getgenv().ESP_Connection:Disconnect()
+end
+
+getgenv().ESP_Enabled = true
+
+local Players = game:GetService("Players")
+local localPlayer = Players.LocalPlayer
+local textSize = 15
+
+-- Eliminar ESP
+local function removeESP(character)
+	if character then
+		local h = character:FindFirstChild("ESP_Highlight")
+		local t = character:FindFirstChild("ESP_NameTag")
+		if h then h:Destroy() end
+		if t then t:Destroy() end
+	end
+end
+
+-- Crear Highlight
+local function createHighlight(character, color)
+	if character:FindFirstChild("ESP_Highlight") then return end
+	local h = Instance.new("Highlight")
+	h.Name = "ESP_Highlight"
+	h.FillColor = Color3.fromRGB(0, 0, 0)
+	h.OutlineColor = color
+	h.FillTransparency = 0.7
+	h.OutlineTransparency = 0
+	h.Parent = character
+end
+
+-- Crear etiqueta con color de texto según el equipo
+local function createNameTag(character, morphName, textColor)
+	if character:FindFirstChild("ESP_NameTag") then return end
+	local head = character:FindFirstChild("Head") or character:FindFirstChild("HumanoidRootPart")
+	if not head then return end
+
+	local b = Instance.new("BillboardGui")
+	b.Name = "ESP_NameTag"
+	b.Adornee = head
+	b.Size = UDim2.new(0, 100, 0, 40)
+	b.StudsOffset = Vector3.new(0, 5, 0)
+	b.AlwaysOnTop = true
+	b.LightInfluence = 1
+	b.MaxDistance = 10000
+
+	local t = Instance.new("TextLabel")
+	t.Size = UDim2.new(1, 0, 1, 0)
+	t.Text = morphName
+	t.TextColor3 = textColor
+	t.TextStrokeColor3 = Color3.new(0, 0, 0)
+	t.TextStrokeTransparency = 0.2
+	t.TextSize = textSize
+	t.Font = Enum.Font.SourceSansBold
+	t.BackgroundTransparency = 1
+	t.TextScaled = false
+
+	t.Parent = b
+	b.Parent = character
+end
+
+-- Aplicar ESP
+local function applyESP(character, player)
+	if not getgenv().ESP_Enabled or not character then return end
+	player = player or Players:GetPlayerFromCharacter(character)
+	if not player then return end
+
+	local success, values = pcall(function()
+		local data = workspace.gameInstance.hitBoxModule.Players[player.Name].CharacterFolder
+		return {
+			team = data:WaitForChild("CharacterTeam").Value,
+			name = data:WaitForChild("CharacterName").Value
+		}
+	end)
+
+	if not success or not values then return end
+
+	local team = string.lower(values.team)
+	local morphName = values.name
+
+	removeESP(character)
+
+	if team == "survivor" then
+		local color = Color3.fromRGB(0, 180, 0)
+		createHighlight(character, color)
+		createNameTag(character, morphName, color)
+	elseif team == "exe" then
+		local color = Color3.fromRGB(200, 50, 50)
+		createHighlight(character, color)
+		createNameTag(character, morphName, color)
+	end
+
+	-- Detectar cambio de team
+	local teamValue = workspace.gameInstance.hitBoxModule.Players[player.Name].CharacterFolder:FindFirstChild("CharacterTeam")
+	if teamValue then
+		teamValue:GetPropertyChangedSignal("Value"):Connect(function()
+			removeESP(character)
+			applyESP(character, player)
+		end)
+	end
+end
+
+-- Refrescar todos los jugadores
+local function refreshAll()
+	for _, p in ipairs(Players:GetPlayers()) do
+		if p ~= localPlayer and p.Character then
+			applyESP(p.Character, p)
+		end
+	end
+end
+
+-- Nuevos jugadores
+getgenv().ESP_Connection = Players.PlayerAdded:Connect(function(p)
+	p.CharacterAdded:Connect(function(c)
+		task.wait(0.5)
+		applyESP(c, p)
+	end)
+end)
+
+-- Ejecutar en los actuales
+refreshAll()
