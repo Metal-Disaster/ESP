@@ -36,57 +36,93 @@ return function(state)
         return
     end
 
-    local function applyHighlightOnly(player, character)
+    local function applyESPToCharacter(player, character)
         if not character or player == localPlayer then return end
-        if character:FindFirstChild("ESP_Highlight") then return end
 
-        local highlight = Instance.new("Highlight")
-        highlight.Name = "ESP_Highlight"
-        highlight.Adornee = character
-        highlight.FillColor = Color3.fromRGB(255, 255, 255)
-        highlight.FillTransparency = 1 -- sin relleno (solo borde)
-        highlight.OutlineColor = Color3.fromRGB(255, 255, 255)
-        highlight.OutlineTransparency = 0 -- borde visible
-        highlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop -- se ve incluso detrás de objetos
-        highlight.Parent = character
-        table.insert(ESP.items, highlight)
+        local hrp = character:FindFirstChild("HumanoidRootPart")
+        local head = character:FindFirstChild("Head") or hrp
+        if not hrp or not head then return end
+
+        -- Highlight gris
+        if not character:FindFirstChild("ESP_Highlight") then
+            local highlight = Instance.new("Highlight")
+            highlight.Name = "ESP_Highlight"
+            highlight.Adornee = character
+            highlight.FillColor = Color3.fromRGB(160, 160, 160)
+            highlight.FillTransparency = 0.5
+            highlight.OutlineColor = Color3.fromRGB(160, 160, 160)
+            highlight.OutlineTransparency = 0
+            highlight.Parent = character
+            table.insert(ESP.items, highlight)
+        end
+
+        -- Mostrar nombre si está cerca
+        local distance = (hrp.Position - localPlayer.Character.HumanoidRootPart.Position).Magnitude
+        local existing = character:FindFirstChild("ESP_NameTag")
+
+        if distance < 600 and not existing then
+            local b = Instance.new("BillboardGui")
+            b.Name = "ESP_NameTag"
+            b.Adornee = head
+            b.Size = UDim2.new(0, 100, 0, 40)
+            b.StudsOffset = Vector3.new(0, 5, 0)
+            b.AlwaysOnTop = true
+            b.LightInfluence = 0
+            b.MaxDistance = 10000
+            b.Parent = character
+            table.insert(ESP.items, b)
+
+            local label = Instance.new("TextLabel")
+            label.Size = UDim2.new(1, 0, 1, 0)
+            label.BackgroundTransparency = 1
+            label.Text = player.Name
+            label.TextColor3 = Color3.new(1, 1, 1)
+            label.TextStrokeColor3 = Color3.new(0, 0, 0)
+            label.TextStrokeTransparency = 0.2
+            label.TextSize = 15
+            label.Font = Enum.Font.SourceSansBold
+            label.Parent = b
+        elseif distance >= 300 and existing then
+            existing:Destroy()
+        end
     end
 
-    local function handlePlayer(player)
+    local function applyESP(player)
         if player == localPlayer then return end
-        if player.Character then applyHighlightOnly(player, player.Character) end
-
+        if player.Character then applyESPToCharacter(player, player.Character) end
         table.insert(ESP.connections, player.CharacterAdded:Connect(function(char)
             task.wait(0.2)
-            applyHighlightOnly(player, char)
+            applyESPToCharacter(player, char)
         end))
     end
 
     for _, p in ipairs(Players:GetPlayers()) do
-        handlePlayer(p)
+        applyESP(p)
     end
 
-    table.insert(ESP.connections, Players.PlayerAdded:Connect(handlePlayer))
+    table.insert(ESP.connections, Players.PlayerAdded:Connect(applyESP))
 
     table.insert(ESP.connections, Players.PlayerRemoving:Connect(function(p)
         if p.Character then
             local h = p.Character:FindFirstChild("ESP_Highlight")
             if h then h:Destroy() end
+            local b = p.Character:FindFirstChild("ESP_NameTag")
+            if b then b:Destroy() end
         end
     end))
 
-    -- 🔁 Bucle de actualización sin task.wait
+    -- ✅ Bucle optimizado sin task.wait
     local lastUpdate = 0
     ESP.loop = RunService.Heartbeat:Connect(function()
         if os.clock() - lastUpdate >= 1 then
             lastUpdate = os.clock()
             for _, p in ipairs(Players:GetPlayers()) do
                 if p ~= localPlayer and p.Character then
-                    applyHighlightOnly(p, p.Character)
+                    applyESPToCharacter(p, p.Character)
                 end
             end
         end
     end)
 
-    print("✅ ESP activado: sin nombres, solo borde blanco limpio")
+    print("✅ ESP activado con borde gris y nombres visibles")
 end
