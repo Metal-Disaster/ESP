@@ -1,128 +1,122 @@
-return function(state)
-    local Players = game:GetService("Players")
-    local RunService = game:GetService("RunService")
-    local localPlayer = Players.LocalPlayer
-
-    if not getgenv().ESP_DATA then
-        getgenv().ESP_DATA = {
-            loop = nil,
-            items = {},
-            connections = {}
-        }
-    end
-
-    local ESP = getgenv().ESP_DATA
-
-    local function clearESP()
-        if ESP.loop then
-            ESP.loop:Disconnect()
-            ESP.loop = nil
-        end
-
-        for _, obj in ipairs(ESP.items) do
-            if obj and obj.Parent then obj:Destroy() end
-        end
-        ESP.items = {}
-
-        for _, conn in ipairs(ESP.connections) do
-            pcall(function() conn:Disconnect() end)
-        end
-        ESP.connections = {}
-    end
-
-    if not state then
-        clearESP()
-        print("❌ ESP desactivado")
-        return
-    end
-
-    local function applyESPToCharacter(player, character)
-        if not character or player == localPlayer then return end
-
-        local hrp = character:FindFirstChild("HumanoidRootPart")
-        local head = character:FindFirstChild("Head") or hrp
-        if not hrp or not head then return end
-
-        -- Highlight gris
-        if not character:FindFirstChild("ESP_Highlight") then
-            local highlight = Instance.new("Highlight")
-            highlight.Name = "ESP_Highlight"
-            highlight.Adornee = character
-            highlight.FillColor = Color3.fromRGB(160, 160, 160)
-            highlight.FillTransparency = 0.5
-            highlight.OutlineColor = Color3.fromRGB(250, 250, 250)
-            highlight.OutlineTransparency = 0
-            highlight.Parent = character
-            table.insert(ESP.items, highlight)
-        end
-
-        -- Mostrar nombre si está cerca
-        local distance = (hrp.Position - localPlayer.Character.HumanoidRootPart.Position).Magnitude
-        local existing = character:FindFirstChild("ESP_NameTag")
-
-        if distance < 600 and not existing then
-            local b = Instance.new("BillboardGui")
-            b.Name = "ESP_NameTag"
-            b.Adornee = head
-            b.Size = UDim2.new(0, 100, 0, 40)
-            b.StudsOffset = Vector3.new(0, 5, 0)
-            b.AlwaysOnTop = true
-            b.LightInfluence = 0
-            b.MaxDistance = 10000
-            b.Parent = character
-            table.insert(ESP.items, b)
-
-            local label = Instance.new("TextLabel")
-            label.Size = UDim2.new(1, 0, 1, 0)
-            label.BackgroundTransparency = 1
-            label.Text = player.Name
-            label.TextColor3 = Color3.new(1, 1, 1)
-            label.TextStrokeColor3 = Color3.new(0, 0, 0)
-            label.TextStrokeTransparency = 0.2
-            label.TextSize = 15
-            label.Font = Enum.Font.SourceSansBold
-            label.Parent = b
-        elseif distance >= 300 and existing then
-            existing:Destroy()
-        end
-    end
-
-    local function applyESP(player)
-        if player == localPlayer then return end
-        if player.Character then applyESPToCharacter(player, player.Character) end
-        table.insert(ESP.connections, player.CharacterAdded:Connect(function(char)
-            task.wait(0.2)
-            applyESPToCharacter(player, char)
-        end))
-    end
-
-    for _, p in ipairs(Players:GetPlayers()) do
-        applyESP(p)
-    end
-
-    table.insert(ESP.connections, Players.PlayerAdded:Connect(applyESP))
-
-    table.insert(ESP.connections, Players.PlayerRemoving:Connect(function(p)
-        if p.Character then
-            local h = p.Character:FindFirstChild("ESP_Highlight")
-            if h then h:Destroy() end
-            local b = p.Character:FindFirstChild("ESP_NameTag")
-            if b then b:Destroy() end
-        end
-    end))
-
-    -- ✅ Bucle optimizado sin task.wait
-    local lastUpdate = 0
-    ESP.loop = RunService.Heartbeat:Connect(function()
-        if os.clock() - lastUpdate >= 1 then
-            lastUpdate = os.clock()
-            for _, p in ipairs(Players:GetPlayers()) do
-                if p ~= localPlayer and p.Character then
-                    applyESPToCharacter(p, p.Character)
-                end
-            end
-        end
-    end)
-
-    print("✅ ESP activado con borde gris y nombres visibles")
+if getgenv().ESP_Connection then
+	getgenv().ESP_Connection:Disconnect()
 end
+
+getgenv().ESP_Enabled = true
+
+local Players = game:GetService("Players")
+local localPlayer = Players.LocalPlayer
+local textSize = 15
+
+-- Eliminar ESP
+local function removeESP(character)
+	if character then
+		local h = character:FindFirstChild("ESP_Highlight")
+		local t = character:FindFirstChild("ESP_NameTag")
+		if h then h:Destroy() end
+		if t then t:Destroy() end
+	end
+end
+
+-- Crear Highlight
+local function createHighlight(character, color)
+	if character:FindFirstChild("ESP_Highlight") then return end
+	local h = Instance.new("Highlight")
+	h.Name = "ESP_Highlight"
+	h.FillColor = Color3.fromRGB(0, 0, 0)
+	h.OutlineColor = color
+	h.FillTransparency = 0.9
+	h.OutlineTransparency = 0
+	h.Parent = character
+end
+
+-- Crear etiqueta con color de texto según el equipo
+local function createNameTag(character, morphName, textColor)
+	if character:FindFirstChild("ESP_NameTag") then return end
+	local head = character:FindFirstChild("Head") or character:FindFirstChild("HumanoidRootPart")
+	if not head then return end
+
+	local b = Instance.new("BillboardGui")
+	b.Name = "ESP_NameTag"
+	b.Adornee = head
+	b.Size = UDim2.new(0, 100, 0, 40)
+	b.StudsOffset = Vector3.new(0, 5, 0)
+	b.AlwaysOnTop = true
+	b.LightInfluence = 1
+	b.MaxDistance = 10000
+
+	local t = Instance.new("TextLabel")
+	t.Size = UDim2.new(1, 0, 1, 0)
+	t.Text = morphName
+	t.TextColor3 = textColor
+	t.TextStrokeColor3 = Color3.new(0, 0, 0)
+	t.TextStrokeTransparency = 0.2
+	t.TextSize = textSize
+	t.Font = Enum.Font.SourceSansBold
+	t.BackgroundTransparency = 1
+	t.TextScaled = false
+
+	t.Parent = b
+	b.Parent = character
+end
+
+-- Aplicar ESP
+local function applyESP(character, player)
+	if not getgenv().ESP_Enabled or not character then return end
+	player = player or Players:GetPlayerFromCharacter(character)
+	if not player then return end
+
+	local success, values = pcall(function()
+		local data = workspace.gameInstance.hitBoxModule.Players[player.Name].CharacterFolder
+		return {
+			team = data:WaitForChild("CharacterTeam").Value,
+			name = data:WaitForChild("CharacterName").Value
+		}
+	end)
+
+	if not success or not values then return end
+
+	local team = string.lower(values.team)
+	local morphName = values.name
+
+	removeESP(character)
+
+	if team == "survivor" then
+		local color = Color3.fromRGB(0, 180, 0)
+		createHighlight(character, color)
+		createNameTag(character, morphName, color)
+	elseif team == "exe" then
+		local color = Color3.fromRGB(200, 50, 50)
+		createHighlight(character, color)
+		createNameTag(character, morphName, color)
+	end
+
+	-- Detectar cambio de team
+	local teamValue = workspace.gameInstance.hitBoxModule.Players[player.Name].CharacterFolder:FindFirstChild("CharacterTeam")
+	if teamValue then
+		teamValue:GetPropertyChangedSignal("Value"):Connect(function()
+			removeESP(character)
+			applyESP(character, player)
+		end)
+	end
+end
+
+-- Refrescar todos los jugadores
+local function refreshAll()
+	for _, p in ipairs(Players:GetPlayers()) do
+		if p ~= localPlayer and p.Character then
+			applyESP(p.Character, p)
+		end
+	end
+end
+
+-- Nuevos jugadores
+getgenv().ESP_Connection = Players.PlayerAdded:Connect(function(p)
+	p.CharacterAdded:Connect(function(c)
+		task.wait(0.5)
+		applyESP(c, p)
+	end)
+end)
+
+-- Ejecutar en los actuales
+refreshAll()
