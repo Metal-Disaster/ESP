@@ -50,7 +50,7 @@ return function(state)
             highlight.Adornee = character
             highlight.FillColor = Color3.fromRGB(160, 160, 160)
             highlight.FillTransparency = 0.5
-            highlight.OutlineColor = Color3.fromRGB(160, 160, 160)
+            highlight.OutlineColor = Color3.fromRGB(255, 255, 255)
             highlight.OutlineTransparency = 0
             highlight.Parent = character
             table.insert(ESP.items, highlight)
