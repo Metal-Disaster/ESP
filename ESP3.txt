@@ -87,7 +87,7 @@ local function applyESP(character, player)
         createHighlight(character, color)
         createNameTag(character, morphName, color)
     elseif team == "exe" then
-        local color = Color3.fromRGB(102, 0, 0)  -- Rojo
+        local color = Color3.fromRGB(200, 0, 0)  -- Rojo
         createHighlight(character, color)
         createNameTag(character, morphName, color)
     end
